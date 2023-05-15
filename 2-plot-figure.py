@@ -24,18 +24,13 @@ print("方法1", time.time() - timeflag, "s")
 timeflag = time.time()
 
 # 方法2：把时间当成字符串，遍历取字符串前两位
+# 方法3：转换为时间格式，后提取小时（非常慢），这里略去
 data["Hour"] = data["Stime"].apply(lambda r: r[:2])
 # 计算耗时
 print("方法2", time.time() - timeflag, "s")
 timeflag = time.time()
 
-# 方法3：转换为时间格式，后提取小时（非常慢）
-data["Hour"] = pd.to_datetime(data["Stime"]).apply(lambda r: r.hour)
-# 计算耗时
-print("方法3", time.time() - timeflag, "s")
-timeflag = time.time()
-
-# 这个是对每一列都计数了，所以取其中一列出来，例如我这里取了['VehicleNum']
+# 对每一列都计数，所以取其中一列出来，例如我这里取了['VehicleNum']
 hourcount = (
     data.groupby(data["Stime"].apply(lambda r: r[:2]))["VehicleNum"]
     .count()
@@ -60,6 +55,9 @@ plt.ylim(0,80000)
 plt.ylabel('Data volumn')
 plt.xlabel('Hour')
 plt.show()
+
+# 保存到文件夹./images中
+fig.savefig('./images/fig1-HourlydataVolume.png',dpi = 250)
 
 # 加上seaborn的主题
 import seaborn as sns
@@ -88,6 +86,7 @@ plt.ylim(0, 80000)
 plt.ylabel("Data Volume")
 plt.xlabel("Hour")
 plt.show()
+fig.savefig('./images/fig2-HourlydataVolume.png',dpi = 250)
 
 # 对TaxiOD数据绘制OD数据量的图表，绘制订单持续时间分布图
 
@@ -95,6 +94,7 @@ TaxiOD = TaxiOD[-TaxiOD["Etime"].isnull()]
 
 timeflag = time.time()
 # 方法1：直接硬算
+# 方法2：转换为时间格式，相减后提取秒（非常慢），这里略去
 TaxiOD["order_time"] = (
     TaxiOD["Etime"].str.slice(0, 2).astype("int") * 3600
     + TaxiOD["Etime"].str.slice(3, 5).astype("int") * 60
@@ -105,41 +105,12 @@ TaxiOD["order_time"] = (
 )
 
 # 计算耗时
-print("方法1", time.time() - timeflag, "s")
+print("耗时", time.time() - timeflag, "s")
 timeflag = time.time()
 
-# 方法2：转换为时间格式，相减后提取秒（非常慢）
-TaxiOD["order_time"] = pd.to_datetime(TaxiOD["Etime"]) - pd.to_datetime(TaxiOD["Stime"])
-TaxiOD["order_time"] = TaxiOD["order_time"].apply(lambda r: r.seconds)
-
-# 计算耗时
-print("方法2", time.time() - timeflag, "s")
-timeflag = time.time()
-
-fig = plt.figure(1,(10,5),dpi = 250)     
-ax = plt.subplot(111)
-plt.sca(ax)
-
-#整理数据
-hour = TaxiOD['Hour'].drop_duplicates().sort_values()
-datas = []
-for i in range(len(hour)):
-    datas.append(TaxiOD[TaxiOD['Hour']==hour.iloc[i]]['order_time']/60)
-#绘制
-plt.boxplot(datas)
-#更改x轴ticks的文字
-plt.xticks(range(1,len(hour)+1),list(hour))
-
-plt.ylabel('Order time(minutes)')
-plt.xlabel('Order start time')
-plt.ylim(0,60)
-
-
-plt.show()
-
+TaxiOD['Hour'] = TaxiOD['Stime'].str.slice(0,2)
 
 # 用seaborn包绘制以每小时分组的订单时间分布，只需要输入整个数据，就可以很方便的画出来
-
 fig = plt.figure(1,(10,5),dpi = 250)    
 ax = plt.subplot(111)
 plt.sca(ax)
@@ -151,3 +122,4 @@ plt.ylabel('Order time(minutes)')
 plt.xlabel('Order start time')
 plt.ylim(0,60)
 plt.show()
+fig.savefig('./images/fig3-ordertime.png')

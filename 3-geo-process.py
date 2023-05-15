@@ -20,9 +20,6 @@ from shapely.geometry import Point, Polygon, shape
 shp = r"shapefile/sz.shp"
 sz = geopandas.GeoDataFrame.from_file(shp, encoding="utf-8")
 
-# 绘制看看长什么样
-sz.plot()
-
 # 栅格化代码
 import math
 
@@ -127,7 +124,6 @@ data["HBLON"] = HBLON1
 data["HBLAT"] = HBLAT1
 data["geometry"] = geometry
 
-data.plot()
 
 # 取栅格和深圳行政区划的交集栅格
 grid = data[data.intersects(sz.unary_union)]
@@ -220,6 +216,8 @@ SZ_all["geometry"] = [sz.unary_union]
 SZ_all.plot(ax=ax, edgecolor=(0, 0, 0, 1), facecolor=(0, 0, 0, 0), linewidths=0.5)
 
 plt.show()
+fig.savefig("./images/SZ.png")
+
 
 fig = plt.figure(1, (10, 8), dpi=250)
 ax = plt.subplot(111)
@@ -237,9 +235,9 @@ for i in range(len(Topod)):
 # 不显示坐标轴
 plt.axis("off")
 plt.show()
+fig.savefig("./images/Top20OD.png")
 
 # 绘制全部的OD
-
 OD1 = OD[OD["VehicleNum"] > 10].copy()
 
 # OD从小到大排序方便我们后续操作，因为我们希望小的OD先画，放在最底下，大的OD后画，放在最上面
@@ -258,95 +256,44 @@ step = 5
 OD1["linewidth"] = (np.array(range(len(OD1))) * step / len(OD1)).astype(
     "int"
 ) / step + 0.1
-OD1.head(5)
 
-fig = plt.figure(1, (10, 8), dpi=250)
+# 绘制
+# 如果遍历绘制OD，绘制速度比较慢，绘制5319条OD用时31s。  
+# 但是，如果把DataFrame变成GeoDataFrame，然后用自带的plot函数绘制，会快很多
+from shapely.geometry import LineString
+OD1['geometry'] = OD1.apply(lambda r:LineString([[r['SHBLON'],r['SHBLAT']],[r['EHBLON'],r['EHBLAT']]]),axis = 1)
+OD1 = geopandas.GeoDataFrame(OD1)
+
+fig = plt.figure(1,(10,8),dpi = 250)    
 ax = plt.subplot(111)
 plt.sca(ax)
 
-# 计时
+#计时
 import time
-
 timeflag = time.time()
-# 绘制底图
-grid.plot(ax=ax, edgecolor=(0, 0, 0, 0.8), facecolor=(0, 0, 0, 0), linewidths=0.2)
-SZ_all.plot(ax=ax, edgecolor=(0, 0, 0, 1), facecolor=(0, 0, 0, 0), linewidths=0.5)
-print("绘制底图用时", time.time() - timeflag, "秒")
+#绘制底图
+grid.plot(ax = ax,edgecolor = (0,0,0,0.8),facecolor = (0,0,0,0),linewidths=0.2)
+SZ_all.plot(ax = ax,edgecolor = (0,0,0,1),facecolor = (0,0,0,0),linewidths=0.5)
+print('绘制底图用时',time.time()-timeflag,'秒')
 
-
-# 设置colormap的数据
-import matplotlib
-
-vmax = OD["VehicleNum"].max()
-cmapname = "autumn_r"
-cmap = matplotlib.cm.get_cmap(cmapname)
-
-timeflag = time.time()
-# 绘制OD
-OD1.plot(
-    ax=ax, column="VehicleNum", vmax=vmax, vmin=0, cmap=cmap, linewidth=OD1["linewidth"]
-)
-print("绘制OD用时", time.time() - timeflag, "秒")
-
-plt.axis("off")
-plt.imshow([[0, vmax]], cmap=cmap)
-cax = plt.axes([0.08, 0.4, 0.02, 0.3])
-plt.colorbar(cax=cax)
-ax.set_xlim(113.6, 114.8)
-ax.set_ylim(22.4, 22.9)
-plt.show()
-
-# 绘制栅格专题图
-#集计
-Odistribution = OD.groupby(['SLONCOL','SLATCOL'])['VehicleNum'].sum().reset_index()
-
-
-#将集计的结果与栅格的geopandas执行merge操作
-gridtoplot = pd.merge(grid,Odistribution.rename(columns = {'SLONCOL':'LONCOL','SLATCOL':'LATCOL'}),on = ['LONCOL','LATCOL'])
-gridtoplot = gridtoplot.rename(columns = {'VehicleNum':'count'})
-
-fig     = plt.figure(1,(10,8),dpi = 250)    
-ax      = plt.subplot(111)
-plt.sca(ax)
 
 #设置colormap的数据
 import matplotlib
-vmax = gridtoplot['count'].max()
-#设定一个标准化的工具，设定OD的colormap最大最小值，他的作用是norm(count)就会将count标准化到0-1的范围内
-norm = mpl.colors.Normalize(vmin=0,vmax=vmax)
-#设定colormap的颜色
+vmax = OD['VehicleNum'].max()
 cmapname = 'autumn_r'
-#cmap是一个获取颜色的工具，cmap(a)会返回颜色，其中a是0-1之间的值
 cmap = matplotlib.cm.get_cmap(cmapname)
 
+timeflag = time.time()
+#绘制OD
+OD1.plot(ax = ax,column = 'VehicleNum',vmax = vmax,vmin = 0,cmap = cmap,linewidth = OD1['linewidth'])
+print('绘制OD用时',time.time()-timeflag,'秒')
 
-#将gridtoplot这个geodataframe进行绘制
-#提示：用gridtoplot.plot，设定里面的参数是column = 'count'，以count这一列来绘制。参数cmap = cmap设定它的颜色
-###########################你需要在下面写代码#############################
-#gridtoplot.plot(...)
-
-
-###################################################################################
-
-#绘制整个深圳的范围
-SZ_all.plot(ax = ax,edgecolor = (0,0,0,1),facecolor = (0,0,0,0),linewidths=0.5)
-
-#不显示坐标轴
 plt.axis('off')    
-
-#绘制假的colorbar，这是因为，我们画的OD是线，没办法直接画出来colorbar
-#所以我们在一个看不见的地方画了一个叫imshow的东西，他的范围是0到vmax
-#然后我们再对imshow添加colorbar
 plt.imshow([[0,vmax]], cmap=cmap)
-#设定colorbar的大小和位置
 cax = plt.axes([0.08, 0.4, 0.02, 0.3])
 plt.colorbar(cax=cax)
-
-#然后要把镜头调整回到深圳地图那，不然镜头就在imshow那里了
-
 ax.set_xlim(113.6,114.8)
 ax.set_ylim(22.4,22.9)
 
 plt.show()
-
-# （提示：用plt.title(图名)设置图名，用plt.savefig(路径)保存，每画完一张图以后记得plt.clf()清除画板）
+fig.savefig('./images/ODDraw.png',dpi = 250)
