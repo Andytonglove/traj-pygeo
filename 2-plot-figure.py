@@ -1,13 +1,17 @@
-# 二、对出租车GPS数据绘制数据统计图表
+# 使用python的matplotlib包和seaborn包对出租车GPS数据绘制数据统计图表
+
+# 二、数据统计图表绘制
 import pandas as pd
 
+# 根据出租车GPS数据和OD数据，绘制出租车GPS数据的统计图表
 data = pd.read_csv(r"data-sample/TaxiData-Sample", header=None)
 data.columns = ["VehicleNum", "Stime", "Lng", "Lat", "OpenStatus", "Speed"]
 
 # 读取OD数据
 TaxiOD = pd.read_csv(r"data-sample/TaxiOD.csv")
 TaxiOD.columns = ["VehicleNum", "Stime", "SLng", "SLat", "ELng", "ELat", "Etime"]
-TaxiOD.head(5)
+
+# 每小时GPS数据量绘图
 
 # 计时
 import time
@@ -38,6 +42,25 @@ hourcount = (
     .reset_index()
 )
 
+# 用matplotlib包来绘制每小时GPS数据量的图表
+import matplotlib.pyplot as plt
+fig = plt.figure(1,(8,4),dpi = 250)    
+ax = plt.subplot(111)
+plt.sca(ax)
+
+#折线图调整颜色加上数据点
+plt.plot(hourcount['Stime'],hourcount['VehicleNum'],'k-',hourcount['Stime'],hourcount['VehicleNum'],'k.')
+#加上条形图
+plt.bar(hourcount['Stime'],hourcount['VehicleNum'],width =0.5)
+
+plt.title('Hourly data Volume')
+
+#把y轴起点固定在0
+plt.ylim(0,80000)
+plt.ylabel('Data volumn')
+plt.xlabel('Hour')
+plt.show()
+
 # 加上seaborn的主题
 import seaborn as sns
 
@@ -66,9 +89,9 @@ plt.ylabel("Data Volume")
 plt.xlabel("Hour")
 plt.show()
 
+# 对TaxiOD数据绘制OD数据量的图表，绘制订单持续时间分布图
+
 TaxiOD = TaxiOD[-TaxiOD["Etime"].isnull()]
-# 计时
-import time
 
 timeflag = time.time()
 # 方法1：直接硬算
@@ -93,16 +116,38 @@ TaxiOD["order_time"] = TaxiOD["order_time"].apply(lambda r: r.seconds)
 print("方法2", time.time() - timeflag, "s")
 timeflag = time.time()
 
-# 用seaborn包绘制以每小时分组的订单时间分布，这时候我们只需要输入整个数据，就可以很方便的画出来
+fig = plt.figure(1,(10,5),dpi = 250)     
+ax = plt.subplot(111)
+plt.sca(ax)
 
-# fig = plt.figure(1, (10, 5), dpi=250)
-# ax = plt.subplot(111)
-# plt.sca(ax)
+#整理数据
+hour = TaxiOD['Hour'].drop_duplicates().sort_values()
+datas = []
+for i in range(len(hour)):
+    datas.append(TaxiOD[TaxiOD['Hour']==hour.iloc[i]]['order_time']/60)
+#绘制
+plt.boxplot(datas)
+#更改x轴ticks的文字
+plt.xticks(range(1,len(hour)+1),list(hour))
 
-# # 只需要一行
-# sns.boxplot(x="Hour", y=TaxiOD["order_time"] / 60, data=TaxiOD, ax=ax)
+plt.ylabel('Order time(minutes)')
+plt.xlabel('Order start time')
+plt.ylim(0,60)
 
-# plt.ylabel("Order time(minutes)")
-# plt.xlabel("Order start time")
-# plt.ylim(0, 60)
-# plt.show()
+
+plt.show()
+
+
+# 用seaborn包绘制以每小时分组的订单时间分布，只需要输入整个数据，就可以很方便的画出来
+
+fig = plt.figure(1,(10,5),dpi = 250)    
+ax = plt.subplot(111)
+plt.sca(ax)
+
+#只需要一行
+sns.boxplot(x="Hour", y=TaxiOD["order_time"]/60, data=TaxiOD,ax = ax)
+
+plt.ylabel('Order time(minutes)')
+plt.xlabel('Order start time')
+plt.ylim(0,60)
+plt.show()
