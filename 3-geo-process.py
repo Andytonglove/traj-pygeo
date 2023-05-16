@@ -1,5 +1,4 @@
 # 使用python的geopandas包创建栅格，对出租车OD数据进行栅格对应，并绘制专题图
-
 # 初始数据为深圳行政区划的GIS文件和出租车OD数据
 
 # 导入必要的包
@@ -10,17 +9,15 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-# geopandas包
+# geopandas包和shapely包
 import geopandas
-
-# shapely包
 from shapely.geometry import Point, Polygon, shape
 
 # 读取shapefile文件
 shp = r"shapefile/sz.shp"
 sz = geopandas.GeoDataFrame.from_file(shp, encoding="utf-8")
 
-# 栅格化代码
+# 栅格化代码：批量算出来一批经纬度的栅格编号
 import math
 
 # 定义一个测试栅格划的经纬度
@@ -45,7 +42,7 @@ deltaLon = (
 )
 deltaLat = accuracy * 360 / (2 * math.pi * 6371004)
 
-# 计算栅格的经纬度编号
+# 计算栅格的经纬度编号，此处LONCOL、LATCOL的计算，我希望起点在第一个格子的中心，因此减去半个栅格
 LONCOL = divmod(float(testlon) - (lonStart - deltaLon / 2), deltaLon)[0]
 LATCOL = divmod(float(testlat) - (latStart - deltaLat / 2), deltaLat)[0]
 
@@ -56,9 +53,7 @@ HBLAT = LATCOL * deltaLat + (latStart - deltaLat / 2)
 # 把算好的东西print出来看看
 LONCOL, LATCOL, HBLON, HBLAT, deltaLon, deltaLat
 
-# 另外，我们要生成这些栅格的geopandas数据
-from shapely.geometry import Point, Polygon, shape
-
+# 生成这些栅格的geopandas数据
 Polygon(
     [
         (HBLON + deltaLon / 2, HBLAT - deltaLat / 2),
@@ -67,14 +62,6 @@ Polygon(
         (HBLON - deltaLon / 2, HBLAT - deltaLat / 2),
     ]
 )
-
-import pandas as pd
-import numpy as np
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import geopandas
-from shapely.geometry import Point, Polygon, shape
-
 
 # 定义空的geopandas表
 data = geopandas.GeoDataFrame()
@@ -92,6 +79,7 @@ lonsnum = int((lon2 - lon1) / deltaLon) + 1
 # lat方向是latsnum个栅格
 latsnum = int((lat2 - lat1) / deltaLat) + 1
 
+# 循环生成栅格
 for i in range(lonsnum):
     for j in range(latsnum):
         HBLON = i * deltaLon + (lonStart - deltaLon / 2)
@@ -124,7 +112,6 @@ data["HBLON"] = HBLON1
 data["HBLAT"] = HBLAT1
 data["geometry"] = geometry
 
-
 # 取栅格和深圳行政区划的交集栅格
 grid = data[data.intersects(sz.unary_union)]
 grid.plot()
@@ -132,9 +119,9 @@ grid.plot()
 # 保存
 grid.to_file(r"shapefile\grid", encoding="utf-8")
 
-# 将数据对应到栅格（这里不用低效率的循环）
-import pandas as pd
 
+# 将数据对应到栅格
+# （这里不用低效率的循环遍历）
 TaxiOD = pd.read_csv(r"data-sample/TaxiOD.csv")
 TaxiOD.columns = ["VehicleNum", "Stime", "SLng", "SLat", "ELng", "ELat", "Etime"]
 
@@ -156,6 +143,7 @@ TaxiOD["ELATCOL"] = ((TaxiOD["ELat"] - (latStart - deltaLat / 2)) / deltaLat).as
 )
 TaxiOD["EHBLON"] = TaxiOD["ELONCOL"] * deltaLon + (lonStart - deltaLon / 2)
 TaxiOD["EHBLAT"] = TaxiOD["ELATCOL"] * deltaLat + (latStart - deltaLat / 2)
+
 # 筛选去掉起点终点在同一个格子里的OD
 # 即筛选去掉不在研究范围内的栅格，TaxiOD的LONCOL、LATCOL都需要在我们的范围内
 TaxiOD = TaxiOD[
@@ -177,7 +165,9 @@ TaxiOD = TaxiOD[
 ]
 TaxiOD.head(5)
 
+
 # 集计栅格OD（全天、高峰时段）
+# VehicleNum变量在这里groupby，此字段就变成了计数count数量，不再是车牌号了
 OD = (
     TaxiOD.groupby(["SLONCOL", "SLATCOL", "ELONCOL", "ELATCOL"])["VehicleNum"]
     .count()
@@ -186,9 +176,10 @@ OD = (
 # OD按照大小排列
 OD = OD.sort_values(by="VehicleNum", ascending=False)
 
+
 # 绘制栅格的OD矩阵图
 
-# 取前20的OD
+# 绘制取前20个的OD
 Topod = OD.iloc[:20].copy()
 
 # 计算起点栅格的中心点经纬度
@@ -199,10 +190,7 @@ Topod["SHBLAT"] = Topod["SLATCOL"] * deltaLat + (latStart - deltaLat / 2)
 Topod["EHBLON"] = Topod["ELONCOL"] * deltaLon + (lonStart - deltaLon / 2)
 Topod["EHBLAT"] = Topod["ELATCOL"] * deltaLat + (latStart - deltaLat / 2)
 
-# 导入绘图包
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-
+# 绘图包调用
 fig = plt.figure(1, (10, 8), dpi=250)
 ax = plt.subplot(111)
 plt.sca(ax)
@@ -237,7 +225,9 @@ plt.axis("off")
 plt.show()
 fig.savefig("./images/Top20OD.png")
 
+
 # 绘制全部的OD
+# 用OD的粗细，颜色深度，和透明度，来表示OD量大小
 OD1 = OD[OD["VehicleNum"] > 10].copy()
 
 # OD从小到大排序方便我们后续操作，因为我们希望小的OD先画，放在最底下，大的OD后画，放在最上面
