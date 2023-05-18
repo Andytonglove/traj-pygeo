@@ -14,7 +14,7 @@ data2.columns = ['VehicleNum', 'Stime', 'Lng', 'Lat', 'OpenStatus', 'Speed']
 
 data2=data2.sort_values(by=['VehicleNum','Stime'])
 
-# 去除重复数据,数据清洗得到表1,字段与原始数据一致
+# 去除重复数据,数据清洗得到表1,字段与原始数据一致，openstatus为1表示载客，为0表示空车
 data2 = data2[-((data2['OpenStatus'].shift(1)== data2['OpenStatus'].shift(-1))&\
       (data2['OpenStatus'].shift(1)!= data2['OpenStatus'])&\
       (data2['VehicleNum'].shift(1)==data2['VehicleNum'].shift(-1))&\
