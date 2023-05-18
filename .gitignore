@@ -7,3 +7,4 @@ tif/
 data-sample/
 ipynb/
 shapefile/
+__pycache__/
